@@ -9,10 +9,10 @@ import time
 
 def parse_args():
     desc = "PyTorch implementation of SR collections"
-    train_dataset = "train2014_2000"
+    train_dataset = "Set14"
     parser = argparse.ArgumentParser(description=desc)
     parser.add_argument('--model_name', type=str, default='EnhanceNet')
-    parser.add_argument('--model_loss', type=str, default='PA')
+    parser.add_argument('--model_loss', type=str, default='PT')
     parser.add_argument('--D_period', type=int, default=3)
     parser.add_argument('--data_dir', type=str,
                         default='/home/sirens/Desktop/Dataset')
@@ -35,7 +35,7 @@ def parse_args():
     parser.add_argument('--save_epochs', type=int, default=1,
                         help='Save trained model every this epochs')
     parser.add_argument('--batch_size', type=int,
-                        default=16, help='training batch size')
+                        default=4, help='training batch size')
     parser.add_argument('--test_batch_size', type=int,
                         default=1, help='testing batch size')
     parser.add_argument('--save_dir', type=str, default='Result_'+train_dataset,

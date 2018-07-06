@@ -5,7 +5,7 @@ import copy
 import torchvision.models as models
 from base_networks import *
 import torch.nn.functional as F
-
+import tensorflow as tf
 
 class Normalization(nn.Module):
     def __init__(self, mean, std):
@@ -156,6 +156,8 @@ def patch_styleLoss(self, style_losses, T_model, style_img, styleLoss_num):
     x = t_len+styleLoss_num
     return x
 
+def normalize(v):
+    return v / tf.reduce_mean(v, axis=[1, 2, 3], keep_dims=True)
 
 class Loss:
     def mse_loss(self, input, target):
@@ -200,18 +202,42 @@ class Loss:
             # 並切成16*16大小做loss運算
             ###############################################
             #print("creat T loss")
-            self.T_model, style_losses = StyleLoss.get_style_model_and_losses(self, self.vgg19,
-                                                                              self.normalization_mean, self.normalization_std, x_, recon_image)
-            self.T_model(recon_image)
-            # utils.print_network(self.T_model)
-            i = 0
-            for sl in style_losses:
-                if i == style_losses.__len__():
-                    style_score += sl.loss*0.3
-                    i += 1
-                else:
-                    style_score += sl.loss
+            # self.T_model, style_losses = StyleLoss.get_style_model_and_losses(self, self.vgg19,
+            #                                                                   self.normalization_mean, self.normalization_std, x_, recon_image)
+            # self.T_model(recon_image)
+            # # utils.print_network(self.T_model)
+            # i = 0
+            # for sl in style_losses:
+            #     if i == style_losses.__len__():
+            #         style_score += sl.loss*0.3
+            #         i += 1
+            #     else:
+            #         style_score += sl.loss
 
-            style_score = style_score.cuda() if self.gpu_mode else style_score
+            # style_score = style_score.cuda() if self.gpu_mode else style_score
+            c_list = [64,128,256]
+            for i in range(3):
+                c = c_list[i]
+                h,w=self.crop_size,self.crop_size
+                p=self.patch_size
+                
+                x=torch.cat(([recon_image, x_]), 0)
+                x = normalize(x)
+                assert h % p == 0 and w % p == 0
+                logger.info('Create texture loss for layer {} with shape {}'.format(x.name, x.get_shape()))
+
+                        # [b * ?, h/p, w/p, c] [32,128,128,64]->[8192,8,8,64]
+                x = tf.space_to_batch_nd(x, [p, p], [[0, 0], [0, 0]])
+
+                        # [p, p, b, h/p, w/p, c]  [8192,8,8,64]->[16,16,32,8,8,64]
+                x = tf.reshape(x, [p, p, -1, h // p, w // p, c])
+
+                        # [b * ?, p, p, c]  [16,16,32,8,8,64]->[32,8,,8,,16,16,64]
+                x = tf.transpose(x, [2, 3, 4, 0, 1, 5])
+                patches_a, patches_b = tf.split(x, 2, axis=0)          # each is b,h/p,w/p,p,p,c
+
+                patches_a = tf.reshape(patches_a, [-1, p, p, c])       # [b * ?, p, p, c]
+                patches_b = tf.reshape(patches_b, [-1, p, p, c])       # [b * ?, p, p, c]
+
 
         return loss_a, loss_output_m2, loss_output_m5, style_score, loss_G

@@ -256,6 +256,19 @@ class LossNet(nn.Module):
         for param in self.VGG_m5_model.parameters():
             param.requires_grad = False
 
+        ################ Texture #############
+        self.conv1_1=nn.Sequential(
+            *list(self.vgg19.children())[:1])
+        self.conv2_1=nn.Sequential(
+            *list(self.vgg19.children())[:6])
+        self.conv3_1=nn.Sequential(
+            *list(self.vgg19.children())[:11])
+        for param in self.conv1_1.parameters():
+            param.requires_grad = False
+        for param in self.conv2_1.parameters():
+            param.requires_grad = False
+        for param in self.conv3_1.parameters():
+            param.requires_grad = False
         ##############Adver################
 
         #Adver_file = 'Adver_param_ch3_batch16_epoch20_lr0.0001.pkl'
