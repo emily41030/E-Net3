@@ -366,17 +366,18 @@ def load_model(self, train_load):
         return False
 
 
-def print_loss(self, epoch, len_data_loader, loss, style_score, loss_output_m2, loss_output_m5, iter_, loss_a, loss_D, loss_G):
+def print_loss(self, epoch, len_data_loader, loss, style_score, loss_output_m2, loss_output_m5, iter_, loss_a, loss_D, loss_G, loss_T):
     print('Epoch: [ % 2d] [%4d/%4d] loss: % .8f ' % ((epoch + 1),
                                                      (iter_ + 1), len_data_loader, loss.data[0]), end="")
     if 'P' in self.model_loss:
-        print('  M2_Loss: % 4f  M5_Loss: % 4f' %
+        print('  M2_Loss: % .4f  M5_Loss: % .4f' %
               (loss_output_m2, loss_output_m5), end="")
     if 'A' in self.model_loss:
-        print('  Loss a: % .8f' % (loss_a), end="")
-        print('  loss_D: % .8f' % loss_D, end="")
-        print('  Loss_G: % .8f' % (loss_G), end="")
+        print('  Loss a: % .6f' % (loss_a), end="")
+        print('  loss_D: % .6f' % loss_D, end="")
+        print('  Loss_G: % .6f' % (loss_G), end="")
     if 'T' in self.model_loss:
         print('  Style Loss: % .8f' % (style_score.item()), end="")
-
+        print('  lossT1: %.8f   lossT2: %.8f   lossT3: %.8f' %
+              (loss_T[0], loss_T[1], loss_T[2]), end="")
     print()

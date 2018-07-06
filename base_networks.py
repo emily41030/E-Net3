@@ -257,11 +257,11 @@ class LossNet(nn.Module):
             param.requires_grad = False
 
         ################ Texture #############
-        self.conv1_1=nn.Sequential(
+        self.conv1_1 = nn.Sequential(
             *list(self.vgg19.children())[:1])
-        self.conv2_1=nn.Sequential(
+        self.conv2_1 = nn.Sequential(
             *list(self.vgg19.children())[:6])
-        self.conv3_1=nn.Sequential(
+        self.conv3_1 = nn.Sequential(
             *list(self.vgg19.children())[:11])
         for param in self.conv1_1.parameters():
             param.requires_grad = False
@@ -269,21 +269,11 @@ class LossNet(nn.Module):
             param.requires_grad = False
         for param in self.conv3_1.parameters():
             param.requires_grad = False
-        ##############Adver################
-
-        #Adver_file = 'Adver_param_ch3_batch16_epoch20_lr0.0001.pkl'
-        # self.Adver_model.load_state_dict(torch.load(Adver_file))
-        # if os.path.isfile(Adver_file):
-        #     self.Adver_model.load_state_dict(torch.load(Adver_file))
-        # else:
-        #     url = "https://www.dropbox.com/s/mec43xhaovjw3ba/Adver_param_ch3_batch16_epoch20_lr0.0001.pkl?dl=1"
-        #     urllib.request.urlretrieve(url, Adver_file)
-        #     self.Adver_model.load_state_dict(torch.load(Adver_file))
-
-        # for param in self.Adver_model.parameters():
-        #     param.requires_grad = False
 
         if self.gpu_mode:
+            self.conv1_1.cuda()
+            self.conv2_1.cuda()
+            self.conv3_1.cuda()
             self.VGG_m2_model.cuda()
             self.VGG_m5_model.cuda()
             # self.T_model.cuda()

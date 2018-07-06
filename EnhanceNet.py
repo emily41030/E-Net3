@@ -21,7 +21,6 @@ import test_v2
 from loss import *
 
 
-
 class EnhanceNet(object):
     def __init__(self, args):
         # parameters
@@ -45,7 +44,7 @@ class EnhanceNet(object):
         self.model_loss = args.model_loss
         self.patch_size = args.patch_size
         self.D_period = args.D_period
-        self.loss_F= args.loss_F
+        self.loss_F = args.loss_F
         if 'A' in args.model_loss:
             self.save_dir = os.path.join(args.save_dir+'_' + args.model_loss + ' epoch%d~%d batch%d lr%.g overlap%d patch%d loss_F=%s period%d' %
                                          (args.previous_epochs, args.num_epochs, args.batch_size, args.lr, args.overlap, args.patch_size, args.loss_F, self.D_period))
@@ -104,7 +103,7 @@ class EnhanceNet(object):
             if self.loss_F == "BCEWithLogitsLoss":
                 self.criterion_GAN = nn.BCEWithLogitsLoss(size_average=False).cuda(
                 ) if self.gpu_mode else nn.BCEWithLogitsLoss(size_average=False)
-            #elif self.loss_F == "Cross"
+            # elif self.loss_F == "Cross"
 
         # print('---------- Networks architecture -------------')
         # utils.print_network(self.model)
@@ -145,7 +144,7 @@ class EnhanceNet(object):
                     param_group['lr'] /= 2.0
                 print('Learning rate decay: lr={}'.format(
                     self.optimizer.param_groups[0]['lr']))
-            
+
             epoch_loss = 0
             epoch_loss_D = 0
             for iter, (lr, hr, bc_lr) in enumerate(train_data_loader):
@@ -159,6 +158,7 @@ class EnhanceNet(object):
                 recon_image = recon_image + bc_y_
                 loss_G = 0
                 loss_D = 0
+                loss_T = []
                 if 'A' in self.model_loss:
                     # ---------------------
                     #  Train Discriminator
@@ -179,12 +179,12 @@ class EnhanceNet(object):
                             self.discriminator(x_), self.valid)
                         loss_fake = self.criterion_GAN(
                             self.discriminator(recon_image.detach()), self.fake)
-                    elif self.loss_F=="MSE":
+                    elif self.loss_F == "MSE":
                         loss_real = self.mse_loss(
                             self.discriminator(x_), self.valid)
                         loss_fake = self.mse_loss(
                             self.discriminator(recon_image.detach()), self.fake)
-                    
+
                     # Total loss
                     loss_D = (loss_real + loss_fake) / 2
 
@@ -198,8 +198,8 @@ class EnhanceNet(object):
                         # -----------------
                         self.optimizer.zero_grad()
 
-                        loss_a, loss_output_m2, loss_output_m5, style_score, loss_G = Loss.loss_op(
-                            self, recon_image, x_)
+                        loss_a, loss_output_m2, loss_output_m5, style_score, loss_G, loss_T = Loss.loss_op(self,
+                                                                                                           self, recon_image, x_)
 
                         loss = (2*0.1*loss_output_m2) + \
                             (2*0.01*loss_output_m5) + \
@@ -210,7 +210,7 @@ class EnhanceNet(object):
                         # log
                         epoch_loss += loss.data[0]
                         utils.print_loss(self, epoch, len(train_data_loader), loss,
-                                         style_score, loss_output_m2, loss_output_m5, iter, loss_a, loss_D, loss_G)
+                                         style_score, loss_output_m2, loss_output_m5, iter, loss_a, loss_D, loss_G, loss_T)
 
                         # tensorboard logging
                         logger.scalar_summary('loss', loss.data[0], step + 1)
@@ -222,8 +222,8 @@ class EnhanceNet(object):
                     # update network
                     self.optimizer.zero_grad()
 
-                    loss_a, loss_output_m2, loss_output_m5, style_score, loss_G = Loss.loss_op(
-                        self, recon_image, x_)
+                    loss_a, loss_output_m2, loss_output_m5, style_score, loss_G, loss_T = Loss.loss_op(self,
+                                                                                                       self, recon_image, x_)
 
                     loss = (2*0.1*loss_output_m2) + \
                         (2*0.01*loss_output_m5) + \
@@ -235,7 +235,7 @@ class EnhanceNet(object):
                     epoch_loss += loss.data[0]
                     #epoch_loss += loss
                     utils.print_loss(self, epoch, len(train_data_loader), loss,
-                                     style_score, loss_output_m2, loss_output_m5, iter, loss_a, loss_D, loss_G)
+                                     style_score, loss_output_m2, loss_output_m5, iter, loss_a, loss_D, loss_G, loss_T)
 
                     # tensorboard logging
                     logger.scalar_summary('loss', loss.data[0], step + 1)

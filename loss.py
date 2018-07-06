@@ -7,6 +7,7 @@ from base_networks import *
 import torch.nn.functional as F
 import tensorflow as tf
 
+
 class Normalization(nn.Module):
     def __init__(self, mean, std):
         super(Normalization, self).__init__()
@@ -140,8 +141,9 @@ def crop_to_patch(self, image):
 def patch_styleLoss(self, style_losses, T_model, style_img, styleLoss_num):
     target_list = []
     if self.patchloss:
-        crop_style_img = crop_to_patch(self, style_img)
-        target_feature = T_model(crop_style_img).detach()
+        #crop_style_img = crop_to_patch(self, style_img)
+        style_img_resize = style_img.view(-1, 64, 16, 16)
+        target_feature = T_model(style_img_resize).detach()
     else:
         target_feature = T_model(style_img).detach()
     target_list.append(target_feature)
@@ -156,47 +158,56 @@ def patch_styleLoss(self, style_losses, T_model, style_img, styleLoss_num):
     x = t_len+styleLoss_num
     return x
 
-def normalize(v):
-    return v / tf.reduce_mean(v, axis=[1, 2, 3], keep_dims=True)
+
+def mse_loss(input, target):
+    return (torch.sum((input - target)**2) / input.data.nelement())
+
+
+def T_loss_op(model, recon, x):
+    recon = model(recon).detach()
+    x = model(x)
+    recon_r = recon.view(-1, 64, 16, 16)
+    x_r = x.view(-1, 64, 16, 16)
+    loss = mse_loss(gram_matrix(recon_r), gram_matrix(x_r))
+    return loss
+
 
 class Loss:
-    def mse_loss(self, input, target):
-        return (torch.sum((input - target)**2) / input.data.nelement())
-
-    def loss_op(self, recon_image, x_):
+    def loss_op(self, self_E,  recon_image, x_):
         loss_a = 0
         loss_output_m2 = 0
         loss_output_m5 = 0
         style_score = 0
         loss_G = 0
-        if 'A' in self.model_loss:
-            if self.loss_F == "BCEWithLogitsLoss":
-                loss_a = self.criterion_GAN(
-                    self.discriminator(recon_image), self.discriminator(x_))
-                loss_G = self.criterion_GAN(
-                    self.discriminator(recon_image), self.fake)
-            elif self.loss_F=="MSE":
+        loss_T = []
+        if 'A' in self_E.model_loss:
+            if self_E.loss_F == "BCEWithLogitsLoss":
+                loss_a = self_E.criterion_GAN(
+                    self_E.discriminator(recon_image), self_E.discriminator(x_))
+                loss_G = self_E.criterion_GAN(
+                    self_E.discriminator(recon_image), self_E.fake)
+            elif self_E.loss_F == "MSE":
                 loss_a = self.mse_loss(
-                    self.discriminator(recon_image), self.discriminator(x_))
+                    self_E.discriminator(recon_image), self_E.discriminator(x_))
                 loss_G = self.mse_loss(
-                    self.discriminator(recon_image), self.fake)
+                    self_E.discriminator(recon_image), self_E.fake)
 
-        if 'P' in self.model_loss:
+        if 'P' in self_E.model_loss:
             #print("creat P loss")
             ############## VGG maxpooling_2 #################
-            recon_loss_m2 = self.VGG_m2_model(recon_image)
-            xs_loss_m2 = self.VGG_m2_model(x_)
+            recon_loss_m2 = self_E.VGG_m2_model(recon_image)
+            xs_loss_m2 = self_E.VGG_m2_model(x_)
 
             for re_m2, xs_m2 in zip(recon_loss_m2, xs_loss_m2):
-                loss_output_m2 += self.mse_loss(re_m2, xs_m2)
+                loss_output_m2 += mse_loss(re_m2, xs_m2)
             ############## VGG maxpooling_5 #################
-            recon_loss_m5 = self.VGG_m5_model(recon_image)
-            xs_loss_m5 = self.VGG_m5_model(x_)
+            recon_loss_m5 = self_E.VGG_m5_model(recon_image)
+            xs_loss_m5 = self_E.VGG_m5_model(x_)
 
             for re_m5, xs_m5 in zip(recon_loss_m5, xs_loss_m5):
-                loss_output_m5 += self.mse_loss(re_m5, xs_m5)
+                loss_output_m5 += mse_loss(re_m5, xs_m5)
 
-        if 'T' in self.model_loss:
+        if 'T' in self_E.model_loss:
             #################################################
             # 輸入整張圖到model，將conv1_1，conv2_1，conv3_1的feature map取出
             # 並切成16*16大小做loss運算
@@ -215,29 +226,16 @@ class Loss:
             #         style_score += sl.loss
 
             # style_score = style_score.cuda() if self.gpu_mode else style_score
-            c_list = [64,128,256]
-            for i in range(3):
-                c = c_list[i]
-                h,w=self.crop_size,self.crop_size
-                p=self.patch_size
-                
-                x=torch.cat(([recon_image, x_]), 0)
-                x = normalize(x)
-                assert h % p == 0 and w % p == 0
-                logger.info('Create texture loss for layer {} with shape {}'.format(x.name, x.get_shape()))
 
-                        # [b * ?, h/p, w/p, c] [32,128,128,64]->[8192,8,8,64]
-                x = tf.space_to_batch_nd(x, [p, p], [[0, 0], [0, 0]])
+            loss_conv1_1 = T_loss_op(
+                self_E.conv1_1, recon_image, x_)
+            loss_conv2_1 = T_loss_op(
+                self_E.conv2_1, recon_image, x_)
+            loss_conv3_1 = T_loss_op(
+                self_E.conv3_1, recon_image, x_)
 
-                        # [p, p, b, h/p, w/p, c]  [8192,8,8,64]->[16,16,32,8,8,64]
-                x = tf.reshape(x, [p, p, -1, h // p, w // p, c])
-
-                        # [b * ?, p, p, c]  [16,16,32,8,8,64]->[32,8,,8,,16,16,64]
-                x = tf.transpose(x, [2, 3, 4, 0, 1, 5])
-                patches_a, patches_b = tf.split(x, 2, axis=0)          # each is b,h/p,w/p,p,p,c
-
-                patches_a = tf.reshape(patches_a, [-1, p, p, c])       # [b * ?, p, p, c]
-                patches_b = tf.reshape(patches_b, [-1, p, p, c])       # [b * ?, p, p, c]
-
-
-        return loss_a, loss_output_m2, loss_output_m5, style_score, loss_G
+            style_score = loss_conv1_1*0.3+loss_conv2_1+loss_conv3_1
+            loss_T.append(loss_conv1_1)
+            loss_T.append(loss_conv2_1)
+            loss_T.append(loss_conv3_1)
+        return loss_a, loss_output_m2, loss_output_m5, style_score, loss_G, loss_T
