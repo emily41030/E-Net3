@@ -377,7 +377,9 @@ def print_loss(self, epoch, len_data_loader, loss, style_score, loss_output_m2, 
         print('  loss_D: % .6f' % loss_D, end="")
         print('  Loss_G: % .6f' % (loss_G), end="")
     if 'T' in self.model_loss:
-        print('  Style Loss: % .8f' % (style_score.item()), end="")
-        print('  lossT1: %.8f   lossT2: %.8f   lossT3: %.8f' %
-              (loss_T[0], loss_T[1], loss_T[2]), end="")
+       # print('  Style Loss: % .8f' % (style_score.item()), end="")
+        print('  Style Loss: % .8f' % (style_score), end="")
+
+        # print('  lossT1: %.8f   lossT2: %.8f   lossT3: %.8f' %
+        #       (loss_T[0], loss_T[1], loss_T[2]), end="")
     print()

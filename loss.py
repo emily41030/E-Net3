@@ -281,13 +281,14 @@ class Loss:
 
             loss_conv1_1 = T_loss_op(self.crop_size, self.patch_size,
                                      self_E.conv1_1, recon_image, x_)
-            loss_conv2_1 = T_loss_op(self.crop_size, self.patch_size,
-                                     self_E.conv2_1, recon_image, x_)
-            loss_conv3_1 = T_loss_op(self.crop_size, self.patch_size,
-                                     self_E.conv3_1, recon_image, x_)
+            # loss_conv2_1 = T_loss_op(self.crop_size, self.patch_size,
+            #                          self_E.conv2_1, recon_image, x_)
+            # loss_conv3_1 = T_loss_op(self.crop_size, self.patch_size,
+            #                          self_E.conv3_1, recon_image, x_)
 
-            style_score = loss_conv1_1*0.3+loss_conv2_1+loss_conv3_1
+            # style_score = loss_conv1_1*0.3+loss_conv2_1+loss_conv3_1
+            style_score = loss_conv1_1*0.3
             loss_T.append(loss_conv1_1)
-            loss_T.append(loss_conv2_1)
-            loss_T.append(loss_conv3_1)
+            # loss_T.append(loss_conv2_1)
+            # loss_T.append(loss_conv3_1)
         return loss_a, loss_output_m2, loss_output_m5, style_score, loss_G, loss_T
