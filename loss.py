@@ -178,15 +178,16 @@ def gram_matrix(v):
     return tf.matmul(v, v, transpose_a=True)
 
 
-def tf_op(crop_size, patch_size, x):
+def tf_op(patch_size, x):
     # [256,64,16,16]  ->  [256,16,16,64]
     x = torch.transpose(x, 1, 3)
+    a, b, crop_size, c = x.size()
     c = x.shape[3]
     # x.numpy()  <-  pytorch_Tensor 轉 numpy
     # tf.convert_to_tensor()   <- numpy 轉 tf
     tf_x = tf.convert_to_tensor(x.cpu().numpy())
 
-    tf_x = normalize(tf_x)
+    #tf_x = normalize(tf_x)
     assert crop_size % patch_size == 0 and crop_size % patch_size == 0
 
     # [b * ?, h/p, w/p, c] [32,128,128,64]->[8192,8,8,64]
@@ -202,11 +203,11 @@ def tf_op(crop_size, patch_size, x):
     return patches_tf_x
 
 
-def T_loss_op(crop_size, patch_size, model, recon, x):
+def T_loss_op(patch_size, model, recon, x):
     recon = model(recon).detach()
     x = model(x)
-    recon_r = tf_op(crop_size, patch_size, recon)
-    x_r = tf_op(crop_size, patch_size, x)
+    recon_r = tf_op(patch_size, recon)
+    x_r = tf_op(patch_size, x)
 
     loss = tf.losses.mean_squared_error(
         gram_matrix(recon_r),
@@ -219,8 +220,9 @@ def T_loss_op(crop_size, patch_size, model, recon, x):
     # tf 轉 numpy
     loss = loss.eval(session=sess)
     # numpy 轉 pytorch_Tensor
-    loss = torch.from_numpy(np.array(loss, dtype=np.float64))
-
+    loss_temp = torch.from_numpy(np.array(loss, dtype=np.float64))
+    # loss= Variable(loss)
+    tf.reset_default_graph()
     return loss
 
 
@@ -279,16 +281,20 @@ class Loss:
 
             # style_score = style_score.cuda() if self.gpu_mode else style_score
 
-            loss_conv1_1 = T_loss_op(self.crop_size, self.patch_size,
+            loss_conv1_1 = T_loss_op(self.patch_size,
                                      self_E.conv1_1, recon_image, x_)
-            # loss_conv2_1 = T_loss_op(self.crop_size, self.patch_size,
-            #                          self_E.conv2_1, recon_image, x_)
-            # loss_conv3_1 = T_loss_op(self.crop_size, self.patch_size,
-            #                          self_E.conv3_1, recon_image, x_)
+            loss_conv2_1 = T_loss_op(self.patch_size,
+                                     self_E.conv2_1, recon_image, x_)
+            loss_conv3_1 = T_loss_op(self.patch_size,
+                                     self_E.conv3_1, recon_image, x_)
 
-            # style_score = loss_conv1_1*0.3+loss_conv2_1+loss_conv3_1
-            style_score = loss_conv1_1*0.3
+            style_score = loss_conv1_1*0.3+loss_conv2_1+loss_conv3_1
+            temp = style_score*1e-6
+            tf.reset_default_graph()
+            # if not style_score==0:
+            #     print("style=%.4f   style=%.4f" % (style_score, temp))
+            # style_score = loss_conv1_1*0.3s
             loss_T.append(loss_conv1_1)
-            # loss_T.append(loss_conv2_1)
-            # loss_T.append(loss_conv3_1)
+            loss_T.append(loss_conv2_1)
+            loss_T.append(loss_conv3_1)
         return loss_a, loss_output_m2, loss_output_m5, style_score, loss_G, loss_T

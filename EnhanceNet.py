@@ -199,8 +199,8 @@ class EnhanceNet(object):
                         # -----------------
                         self.optimizer.zero_grad()
 
-                        loss_a, loss_output_m2, loss_output_m5, loss_G = Loss.loss_op(self,
-                                                                                      self, recon_image, x_)
+                        loss_a, loss_output_m2, loss_output_m5, style_score, loss_G, loss_T = Loss.loss_op(self,
+                                                                                                           self, recon_image, x_)
 
                         loss = (2*0.1*loss_output_m2) + \
                             (2*0.01*loss_output_m5) + \
@@ -225,33 +225,9 @@ class EnhanceNet(object):
 
                     loss_a, loss_output_m2, loss_output_m5, style_score, loss_G, loss_T = Loss.loss_op(self,
                                                                                                        self, recon_image, x_)
-                    # if 'T' in self.model_loss:
-                    #     #################################################
-                    #     # 輸入整張圖到model，將conv1_1，conv2_1，conv3_1的feature map取出
-                    #     # 並切成16*16大小做loss運算
-                    #     ###############################################
-                    #     vgg = Vgg19(requires_grad=False).cuda(
-                    #     ) if self.gpu_mode else Vgg19(requires_grad=False)
-                    #     style_transform = transforms.Compose(
-                    #         [(transforms.Lambda(lambda x: x.mul(255)))])
-                    #     style = style_transform(x_)
-                    #     style = style.repeat(self.batch_size, 1, 1, 1).cuda(
-                    #     ) if self.gpu_mode else style.repeat(self.batch_size, 1, 1, 1)
-
-                    #     features_style = vgg(normalize_batch(style))
-                    #     gram_style = [gram_matrix(y) for y in features_style]
-                    #     features_style = vgg(normalize_batch(style))
-                    #     n_batch = len(x_)
-                    #     y = normalize_batch(recon_image)
-                    #     features_y = vgg(y)
-                    #     style_loss = 0.
-                    #     for ft_y, gm_s in zip(features_y, gram_style):
-                    #         gm_y = gram_matrix(ft_y)
-                    #         style_loss += mse_loss(gm_y, gm_s[:n_batch, :, :])
-
                     loss = (2*0.1*loss_output_m2) + \
                         (2*0.01*loss_output_m5) + \
-                        loss_a*1e-3 + style_loss*1e-6
+                        loss_a*1e-3 + style_score*1e-6
 
                     loss.backward()
                     self.optimizer.step()
@@ -260,7 +236,7 @@ class EnhanceNet(object):
                     epoch_loss += loss.data[0]
                     #epoch_loss += loss
                     utils.print_loss(self, epoch, len(train_data_loader), loss,
-                                     style_loss, loss_output_m2, loss_output_m5, iter, loss_a, loss_D, loss_G, loss_T)
+                                     style_score, loss_output_m2, loss_output_m5, iter, loss_a, loss_D, loss_G, loss_T)
 
                     # tensorboard logging
                     logger.scalar_summary('loss', loss.data[0], step + 1)
